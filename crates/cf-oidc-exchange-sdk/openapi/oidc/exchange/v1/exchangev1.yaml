@@ -12,7 +12,8 @@ info:
     Exchanges an OIDC token for short-lived Cloudflare credentials, or for an access token
     the broker signs for another service (RFC 8693 token exchange at `POST /oauth/token`;
     RFC 9068), and revokes Cloudflare tokens (RFC 7009 at `POST /oauth/revoke`). Services
-    find the keys to verify the broker's tokens through its metadata (RFC 8414).
+    find the keys to verify the broker's tokens through its metadata (RFC 8414, or OpenID
+    Connect Discovery for those that only read that).
 servers:
   - url: https://cf-oidc-exchange.example.com
 tags:
@@ -85,9 +86,7 @@ paths:
       tags: [ExchangeService]
       summary: The broker's Authorization Server Metadata (RFC 8414), with its keys and endpoints.
       description: >-
-        Tokens come from exchange only, so there's no authorization endpoint, and the broker
-        issues no ID tokens: it's an OAuth authorization server, not an OpenID Provider, so
-        it publishes no `/.well-known/openid-configuration`.
+        Tokens come from exchange only, so there's no authorization endpoint.
       responses:
         "200":
           description: The metadata. Cacheable for 5 minutes.
@@ -95,6 +94,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthorizationServerMetadata"
+        "500":
+          $ref: "#/components/responses/Error"
+  /.well-known/openid-configuration:
+    get:
+      operationId: openidConfiguration
+      tags: [ExchangeService]
+      summary: The broker's OpenID Provider Metadata (OpenID Connect Discovery 1.0), with its keys.
+      description: >-
+        For services that find an issuer's keys only through OpenID Connect Discovery, such
+        as AWS IAM, Google Cloud Workload Identity Federation and Vault. The broker isn't a
+        full OpenID Provider: tokens come from exchange only, so there's no authorization
+        endpoint. As GitHub's and Kubernetes' issuers do, it publishes what verifying its
+        tokens takes, and the members Discovery requires.
+      responses:
+        "200":
+          description: The metadata. Cacheable for 5 minutes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenIdProviderMetadata"
         "500":
           $ref: "#/components/responses/Error"
   /.well-known/jwks:
@@ -271,6 +290,33 @@ components:
           type: array
           items:
             type: string
+    OpenIdProviderMetadata:
+      type: object
+      description: OpenID Provider Metadata (OpenID Connect Discovery 1.0 §3), without an authorization endpoint.
+      required:
+        [issuer, jwks_uri, response_types_supported, subject_types_supported, id_token_signing_alg_values_supported]
+      properties:
+        issuer:
+          type: string
+          description: Exactly the `iss` of the broker's tokens, so no trailing slash.
+        jwks_uri:
+          type: string
+          format: uri
+        response_types_supported:
+          type: array
+          items:
+            type: string
+          description: "`id_token`, as GitHub's and Kubernetes' issuers say, since Discovery requires one."
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+          description: "`public`: `sub` is the caller's `sub` from its issuer, the same for every service."
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+          description: "`RS256`, what the broker signs its tokens with."
     Jwks:
       type: object
       required: [keys]

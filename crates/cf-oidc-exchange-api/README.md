@@ -298,7 +298,7 @@ The caller asks for it with [`audience`](#token-exchange) set to the service's U
 - Verified claims are copied under their issuer's names, so a service can match on them: every claim the profile's or its provider's claim sets name. Nothing else, so an issuer's other claims (such as GitLab's `user_email`) stay behind.
 - It lasts the profile's `ttl`, but never past the caller's OIDC token, which lasts minutes. Exchange again for a fresh one: there are no refresh tokens.
 
-Services find the public key at [`/.well-known/jwks`](#http-api), or through the broker's RFC 8414 metadata at [`/.well-known/oauth-authorization-server`](#http-api), and should check `typ` (`at+jwt`), `iss`, `aud`, `exp` and the `RS256` algorithm, as RFC 9068 §4 says. The broker is an OAuth authorization server, not an OpenID Provider: it issues no ID tokens, so it publishes no `/.well-known/openid-configuration`. With cf-oidc-core, a service names the broker as a provider with `typ` `at+jwt`.
+Services find the public key at [`/.well-known/jwks`](#http-api), or through the broker's metadata: RFC 8414's at [`/.well-known/oauth-authorization-server`](#http-api), or OpenID Connect Discovery's at [`/.well-known/openid-configuration`](#http-api) for services that only read that, such as AWS IAM, Google Cloud Workload Identity Federation and Vault. They should check `typ` (`at+jwt`), `iss`, `aud`, `exp` and the `RS256` algorithm, as RFC 9068 §4 says. The broker isn't a full OpenID Provider: tokens come from exchange only, so, as for GitHub's and Kubernetes' issuers, its discovery document has no authorization endpoint. With cf-oidc-core, a service names the broker as a provider with `typ` `at+jwt`.
 
 The key is an RSA private key, at least 2048 bits, in Secrets Store, bound as `CF_OIDC_EXCHANGE_API_SIGNING_KEY` (`signing_key_secret` in the [Terraform module](../../deployment/terraform)):
 
@@ -334,6 +334,7 @@ These are enforced when the policy loads, so an unsafe policy never serves a req
 | `POST` | `/oauth/token` | `subject_token` in the body | [Token exchange](#token-exchange) (RFC 8693) of an OIDC token. What the action uses. |
 | `POST` | `/oauth/revoke` | `token` in the body | [Revoke](#revocation) (RFC 7009) a token the broker minted. What the action's post step uses. |
 | `GET` | `/.well-known/oauth-authorization-server` | public | The broker's Authorization Server Metadata (RFC 8414): its issuer, key and endpoint URLs, for services that verify [its tokens](#tokens-for-other-services). |
+| `GET` | `/.well-known/openid-configuration` | public | The same issuer and keys as OpenID Provider Metadata (OpenID Connect Discovery 1.0), for services that only read that. |
 | `GET` | `/.well-known/jwks` | public | The public key the broker signs its own tokens with. Empty without `CF_OIDC_EXCHANGE_API_SIGNING_KEY`. |
 | `GET` | `/health/live` | public | `200` whenever the Worker's bindings are valid. |
 | `GET` | `/health/ready` | public | `200` whenever the Worker's bindings are valid. It doesn't read the secrets: a route that needs them fails closed with `500`, with why in Workers Logs. |
@@ -476,7 +477,7 @@ The crate is laid out as cf-nix-cache's Worker is:
 | `src/lib.rs` | The start, fetch and scheduled events: the JSON logger, the configuration, then the SDK's router over it, with the auth layer, the health endpoints and `OAuthResponseLayer`. |
 | `src/service/config.rs` | The bindings, read in `Config::from_env` only, and the policy's format: providers, profiles, claim sets, bucket prefixes, and the guardrails parsing checks. |
 | `src/service/layer.rs` | Exchange auth, as a tower layer over [`cf-oidc-core`](../cf-oidc-core): the subject token's provider by `iss`, RS256 against the issuer's keys with WebCrypto, the standard claims and the provider's claim sets. And `OAuthResponseLayer`, OAuth's rules for every response: the generated validation's refusals as `invalid_request`, and `Cache-Control`. |
-| `src/service/handler.rs` | The generated API's implementation: the exchange (profiles, Cloudflare tokens and R2 credentials through [cloudflare-rs](https://github.com/cf-contrib/cloudflare-rs), the broker's own tokens), revocation, the RFC 8414 metadata, the keys, and the cleanup the cron runs. |
+| `src/service/handler.rs` | The generated API's implementation: the exchange (profiles, Cloudflare tokens and R2 credentials through [cloudflare-rs](https://github.com/cf-contrib/cloudflare-rs), the broker's own tokens), revocation, the RFC 8414 and OpenID Connect Discovery metadata, the keys, and the cleanup the cron runs. |
 
 ## Development
 
