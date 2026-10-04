@@ -1052,13 +1052,6 @@ mod tokens_for_other_services {
     #[tokio::test]
     async fn publishes_its_metadata_and_only_the_public_key() {
         let _t = setup().await;
-        // An OAuth authorization server, not an OpenID Provider.
-        assert_eq!(
-            call(Method::GET, "/.well-known/openid-configuration")
-                .await
-                .status,
-            404
-        );
         let res = call(Method::GET, "/.well-known/oauth-authorization-server").await;
         assert_eq!(res.status, 200);
         assert_eq!(res.cache_control.as_deref(), Some("public, max-age=300"));
@@ -1071,6 +1064,22 @@ mod tokens_for_other_services {
                 "revocation_endpoint": format!("{AUDIENCE}/oauth/revoke"),
                 "response_types_supported": [],
                 "grant_types_supported": [GRANT],
+            }),
+        );
+
+        // The same issuer and keys, for services that only read OpenID
+        // Connect Discovery.
+        let res = call(Method::GET, "/.well-known/openid-configuration").await;
+        assert_eq!(res.status, 200);
+        assert_eq!(res.cache_control.as_deref(), Some("public, max-age=300"));
+        assert_matches(
+            &res.json(),
+            json!({
+                "issuer": AUDIENCE,
+                "jwks_uri": format!("{AUDIENCE}/.well-known/jwks"),
+                "response_types_supported": ["id_token"],
+                "subject_types_supported": ["public"],
+                "id_token_signing_alg_values_supported": ["RS256"],
             }),
         );
 

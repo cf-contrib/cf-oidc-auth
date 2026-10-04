@@ -30,7 +30,7 @@ use std::sync::Arc;
 use cf_oidc_core::{AccessTokenClaims, Jwt, SigningKey};
 use cf_oidc_exchange_sdk::v1::{
     self, AuthorizationServerMetadata, BucketCredentials, Error, ErrorCode, ExchangeServiceApi,
-    IssuedTokenType, Jwks, TokenExchangeRequest,
+    IssuedTokenType, Jwks, OpenIdProviderMetadata, TokenExchangeRequest,
     TokenExchangeRequestSubjectTokenType as SubjectTokenType, TokenExchangeResponse,
     TokenExchangeResponseTokenType as TokenType, TokenRevocationRequest,
 };
@@ -627,7 +627,7 @@ impl ExchangeServiceApi for ExchangeServiceHandler {
     /// `GET /.well-known/oauth-authorization-server`: the broker's
     /// Authorization Server Metadata (RFC 8414), so services can find its keys
     /// and endpoints. It issues tokens by exchange only, so there's no
-    /// authorization endpoint, and no ID tokens: it isn't an OpenID Provider.
+    /// authorization endpoint.
     async fn metadata(&self) -> v1::MetadataResponse {
         let issuer = &self.config.policy().issuer;
         let url = |path: &str| format!("{issuer}{path}").parse();
@@ -651,6 +651,29 @@ impl ExchangeServiceApi for ExchangeServiceHandler {
             grant_types_supported: vec![TOKEN_EXCHANGE.into()],
             token_endpoint_auth_methods_supported: Some(vec!["none".into()]),
             revocation_endpoint_auth_methods_supported: Some(vec!["none".into()]),
+        })
+    }
+
+    /// `GET /.well-known/openid-configuration`: the broker's OpenID Provider
+    /// Metadata (OpenID Connect Discovery 1.0), for services that find an
+    /// issuer's keys only that way, such as AWS IAM. There's no authorization
+    /// endpoint, as for GitHub's and Kubernetes' issuers; the rest is what
+    /// Discovery requires.
+    async fn openid_configuration(&self) -> v1::OpenidConfigurationResponse {
+        let issuer = &self.config.policy().issuer;
+        let Ok(jwks_uri) = format!("{issuer}/.well-known/jwks").parse() else {
+            error!(%issuer, "the issuer makes no URLs");
+            return v1::OpenidConfigurationResponse::InternalServerError(Error::new(
+                ErrorCode::ServerError,
+                "the broker is misconfigured; its logs say why",
+            ));
+        };
+        v1::OpenidConfigurationResponse::Ok(OpenIdProviderMetadata {
+            issuer: issuer.clone(),
+            jwks_uri,
+            response_types_supported: vec!["id_token".into()],
+            subject_types_supported: vec!["public".into()],
+            id_token_signing_alg_values_supported: vec!["RS256".into()],
         })
     }
 
