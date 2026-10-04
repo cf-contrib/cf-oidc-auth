@@ -34,7 +34,7 @@ variable "cloudflare_token_secret" {
     secret_store_id = string
     secret_name     = string
   })
-  description = "Secrets Store secret holding the broker token: an account-owned token with \"Account API Tokens Write\", plus R2 permissions covering what profiles' buckets delegate (it creates those credentials and is their parent). Terraform only references it; the value never enters state."
+  description = "Secrets Store secret holding the Cloudflare token: an account-owned token with \"Account API Tokens Write\", plus R2 permissions covering what profiles' buckets delegate (it creates those credentials and is their parent). Terraform only references it; the value never enters state."
 }
 
 variable "signing_key_secret" {
