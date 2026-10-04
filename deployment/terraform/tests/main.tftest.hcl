@@ -1,5 +1,5 @@
 # Plans the module with mocked providers: no credentials or network needed.
-# Covers the broker token binding, URL modes, the release and local artifacts, their
+# Covers the Cloudflare token binding, URL modes, the release and local artifacts, their
 # checksums, and the policy the module builds from its variables: what it fills
 # in, what it leaves out, and its size.
 mock_provider "cloudflare" {}
@@ -99,7 +99,7 @@ run "secrets_store_binding" {
       for b in cloudflare_worker_version.this.bindings :
       b.name == "CF_OIDC_EXCHANGE_API_CLOUDFLARE_TOKEN" && b.type == "secrets_store_secret" && b.secret_name == "cf-oidc-exchange-cloudflare-token"
     ])
-    error_message = "the broker token should be a Secrets Store binding"
+    error_message = "the Cloudflare token should be a Secrets Store binding"
   }
 
   assert {

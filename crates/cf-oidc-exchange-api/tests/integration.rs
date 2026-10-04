@@ -176,7 +176,7 @@ mod token_exchange_for_jobs {
             "invalid_request",
             "the token matches none of provider github's claim sets",
         );
-        assert_eq!(token_count(), 1); // only the broker token
+        assert_eq!(token_count(), 1); // only the Cloudflare token
     }
 
     #[tokio::test]
@@ -425,7 +425,7 @@ mod token_exchange_for_jobs_with_buckets {
                 .status,
             503
         );
-        assert_eq!(token_count(), 1); // only the broker token
+        assert_eq!(token_count(), 1); // only the Cloudflare token
         let issued: Vec<Value> = t
             .audits("r2.issued")
             .await

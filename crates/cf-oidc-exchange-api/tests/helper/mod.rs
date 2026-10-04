@@ -43,9 +43,9 @@ pub const OWNER_ID: &str = "100000001";
 pub const USER_ID: &str = "300000004";
 pub const CACHE: &str = "https://cf-nix-cache.example.com";
 
-/// The broker tokens `tests/run.sh` puts in the local Secrets Store.
+/// The Cloudflare token `tests/run.sh` puts in the local Secrets Store, and its ID.
 pub const CLOUDFLARE_TOKEN: &str = "test-cloudflare-token";
-pub const CLOUDFLARE_TOKEN_ID: &str = "tok-broker";
+pub const CLOUDFLARE_TOKEN_ID: &str = "tok-cloudflare";
 
 pub const GRANT: &str = "urn:ietf:params:oauth:grant-type:token-exchange";
 pub const ID_TOKEN: &str = "urn:ietf:params:oauth:token-type:id_token";
@@ -528,7 +528,7 @@ impl FakeCloudflare {
         };
         fake.add(
             Some(CLOUDFLARE_TOKEN_ID),
-            "cf-oidc broker token",
+            "cf-oidc-exchange Cloudflare token",
             Some(CLOUDFLARE_TOKEN),
             None,
             "active",
@@ -594,7 +594,7 @@ impl FakeCloudflare {
         if method == Method::GET && path == format!("{acct}/tokens/permission_groups") {
             return envelope(permission_groups());
         }
-        // Everything below takes the broker token, except verify, which takes the presented one.
+        // Everything below takes the Cloudflare token, except verify, which takes the presented one.
         if method == Method::GET && path == format!("{acct}/tokens/verify") {
             return match self.tokens.values().find(|t| t.value == auth) {
                 Some(t) => {
